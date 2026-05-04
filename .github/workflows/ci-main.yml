@@ -66,31 +66,40 @@ jobs:
           echo "IMAGE=$image" >> $env:GITHUB_ENV
 
       - name: Generate SBOM with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
-          format: cyclonedx
-          output: sbom.cdx.json
+        shell: pwsh
+        run: |
+          docker run --rm `
+            -v "${{ github.workspace }}:/output" `
+            aquasec/trivy:latest image `
+            --format cyclonedx `
+            --output /output/sbom.cdx.json `
+            "${env:IMAGE}:${env:GITHUB_SHA}"
 
       - name: Upload SBOM to Dependency-Track
-        shell: bash
+        shell: pwsh
         run: |
-          curl -sf -X POST "${{ vars.DTRACK_URL }}/api/v1/bom" \
-            -H "X-Api-Key: ${{ secrets.DTRACK_API_KEY }}" \
-            -H "Content-Type: multipart/form-data" \
-            -F "projectName=my-app" \
-            -F "projectVersion=${{ github.sha }}" \
-            -F "autoCreate=true" \
+          curl.exe -sf -X POST "${env:DTRACK_URL}/api/v1/bom" `
+            -H "X-Api-Key: ${env:DTRACK_API_KEY}" `
+            -H "Content-Type: multipart/form-data" `
+            -F "projectName=my-app" `
+            -F "projectVersion=${env:GITHUB_SHA}" `
+            -F "autoCreate=true" `
             -F "bom=@sbom.cdx.json"
+        env:
+          DTRACK_URL: ${{ vars.DTRACK_URL }}
+          DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
 
       - name: Run Trivy container scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
-          format: sarif
-          output: trivy-image-results.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
+        shell: pwsh
+        run: |
+          docker run --rm `
+            -v "${{ github.workspace }}:/output" `
+            aquasec/trivy:latest image `
+            --format sarif `
+            --output /output/trivy-image-results.sarif `
+            --severity CRITICAL,HIGH `
+            --ignore-unfixed `
+            "${env:IMAGE}:${env:GITHUB_SHA}"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
