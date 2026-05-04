@@ -40,7 +40,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lowercase image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+        shell: pwsh
+        run: |
+          $image = "ghcr.io/$env:GITHUB_REPOSITORY".ToLower()
+          echo "IMAGE=$image" >> $env:GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
